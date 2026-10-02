@@ -20,7 +20,7 @@ app.use(
     ) => {
       const allowedOrigins = [
         'http://localhost:3000',
-        'https://cloth-store-frontend-personal.vercel.app'
+        'https://cloth-store-frontend-personal-lemon.vercel.app'
       ]
 
       if (!origin || allowedOrigins.includes(origin)) {
