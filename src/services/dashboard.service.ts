@@ -80,21 +80,6 @@ transaction WHERE transaction_type='payment' AND is_cash=1) AS t1 ;
 }
 
 export const getProfitSummary = async () => {
-  // const [rows] = await db.execute(sql`
-  //   SELECT
-  //     ROW_NUMBER() OVER (ORDER BY MIN(sales_master.sale_date)) AS id,
-  //     DATE_FORMAT(sales_master.sale_date, '%M %Y') AS month,
-  //     COUNT(DISTINCT sales_master.sale_master_id) AS number_of_sales,
-  //     SUM(sales_details.amount) AS total_sales_amount,
-  //     SUM((sales_details.unit_price - sales_details.avg_price) * sales_details.quantity)
-  //       - SUM(sales_master.discount_amount) AS net_profit
-  //   FROM sales_details
-  //   INNER JOIN item ON item.item_id = sales_details.item_id
-  //   INNER JOIN sales_master ON sales_master.sale_master_id = sales_details.sale_master_id
-  //   WHERE sales_master.sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-  //   GROUP BY DATE_FORMAT(sales_master.sale_date, '%M %Y')
-  //   ORDER BY MIN(sales_master.sale_date);
-  // `)
   const [rows] = await db.execute(sql`
     SELECT 
     ROW_NUMBER() OVER (ORDER BY table1.date) AS id,
@@ -145,33 +130,33 @@ ORDER BY table1.date;
 }
 
 export const getBankBalanceSummary = async () => {
-  const [rows] = await db.execute(sql`
-    SELECT 
-      FLOOR(RAND() * 1000000) AS id, -- random id between 0 and 999999
-      t1.bank_name, 
-      SUM(t1.current_balance) AS current_balance 
+  const result: any = await db.execute(sql`
+    SELECT
+      bank_name,
+      SUM(current_balance) AS current_balance
     FROM (
-      SELECT 
-        bank_account.bank_name, 
-        SUM(IF(type='debit', opening_amount, -(opening_amount))) AS current_balance
-      FROM opening_balance 
-      INNER JOIN bank_account ON bank_account.bank_account_id = opening_balance.bank_account_id
-      WHERE opening_balance.bank_account_id IS NOT NULL
-      GROUP BY opening_balance.bank_account_id
+      SELECT
+        ba.bank_name,
+        SUM(IF(ob.type='debit', ob.opening_amount, -ob.opening_amount)) AS current_balance
+      FROM opening_balance ob
+      INNER JOIN bank_account ba ON ba.bank_account_id = ob.bank_account_id
+      WHERE ob.bank_account_id IS NOT NULL
+      GROUP BY ba.bank_account_id, ba.bank_name
 
-      UNION
+      UNION ALL
 
-      SELECT 
-        bank_account.bank_name, 
-        IFNULL(SUM(amount), 0) AS current_balance
-      FROM transaction 
-      INNER JOIN bank_account ON bank_account.bank_account_id = transaction.bank_id
-      GROUP BY bank_account.bank_account_id
+      SELECT
+        ba.bank_name,
+        IFNULL(SUM(t.amount), 0) AS current_balance
+      FROM transaction t
+      INNER JOIN bank_account ba ON ba.bank_account_id = t.bank_id
+      WHERE t.bank_id IS NOT NULL
+      GROUP BY ba.bank_account_id, ba.bank_name
     ) AS t1
-    GROUP BY t1.bank_name
-    HAVING current_balance > 0;
+    GROUP BY bank_name
   `)
-  return rows
+
+  return result?.[0] ?? result
 }
 
 export const getPurchaseSummary = async () => {
